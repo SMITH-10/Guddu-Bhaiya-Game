@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mirzapur Flappy - Village Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #2c1a0a;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .menu-card {
+            background: linear-gradient(135deg, rgba(69, 26, 3, 0.95), rgba(21, 10, 2, 0.95));
+            padding: 2.5rem;
+            border: 3px solid #d97706;
+            border-radius: 12px;
+            text-align: center;
+            pointer-events: auto;
+            color: #fde68a;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+
+        .btn {
+            background: #92400e;
+            color: #fde68a;
+            padding: 1rem 2rem;
+            border: 2px solid #d97706;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+
+        .btn:hover {
+            background: #d97706;
+            color: white;
+        }
+
+        #score-display {
+            position: absolute;
+            top: 2rem;
+            width: 100%;
+            text-align: center;
+            color: #fde68a;
+            font-size: 2.5rem;
+            text-shadow: 4px 4px 0px #451a03;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .village-font {
+            font-family: 'Crimson Text', serif;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="score-display">0</div>
+
+    <div id="ui-layer">
+        <!-- Start Menu -->
+        <div id="start-menu" class="menu-card">
+            <h1 class="text-3xl mb-4 text-orange-500 village-font uppercase">Mirzapur</h1>
+            <p class="text-xs mb-6 text-orange-200">GUDDU'S SURVIVAL</p>
+            <p class="text-[10px] mb-6 leading-loose">Bhaiya ji ka raaj hai...<br> संभल के उड़ना!</p>
+            <button class="btn" onclick="startGame()">Shuru Karein</button>
+        </div>
+
+        <!-- Game Over Menu -->
+        <div id="game-over-menu" class="menu-card hidden">
+            <h1 class="text-2xl mb-4 text-red-600 village-font">GUDDU KE ANDE KHATAM</h1>
+            <p id="final-score" class="text-lg mb-2">Score: 0</p>
+            <p id="best-score" class="text-sm mb-6 text-orange-300">Record: 0</p>
+            <button class="btn" onclick="startGame()">Dobara Koshish</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score-display');
+        const startMenu = document.getElementById('start-menu');
+        const gameOverMenu = document.getElementById('game-over-menu');
+        const finalScoreText = document.getElementById('final-score');
+        const bestScoreText = document.getElementById('best-score');
+
+        // Game Constants
+        const GRAVITY = 0.22;
+        const JUMP = -6.2; // Slightly more jump power for bigger mass
+        const PIPE_SPEED = 3.8;
+        const PIPE_SPAWN_RATE = 100; 
+        const PIPE_GAP = 340; // Admin: Increased significantly to accommodate larger Guddu
+
+        let gameState = 'START';
+        let score = 0;
+        let highscore = localStorage.getItem('mirzapur_high_score') || 0;
+        let frameCount = 0;
+
+        // Asset Setup
+        const assets = {
+            guddu: new Image(),
+            kaleen: new Image(),
+            munna: new Image(),
+            beena: new Image()
+        };
+
+        // Admin: Assets from your folder
+        assets.guddu.src = 'assets/guddu.png';
+        assets.kaleen.src = 'assets/kaleen bhaiya.png';
+        assets.munna.src = 'assets/munna bhaiya.png';
+        assets.beena.src = 'assets/beena.png'; 
+
+        let imagesLoaded = { guddu: false, kaleen: false, munna: false, beena: false };
+        assets.guddu.onload = () => imagesLoaded.guddu = true;
+        assets.kaleen.onload = () => imagesLoaded.kaleen = true;
+        assets.munna.onload = () => imagesLoaded.munna = true;
+        assets.beena.onload = () => imagesLoaded.beena = true;
+
+        const player = {
+            x: 0,
+            y: 0,
+            w: 125, // Admin: Increased significantly (was 80)
+            h: 125, // Admin: Increased significantly (was 80)
+            velocity: 0,
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.w/2, this.y + this.h/2);
+                const rot = Math.min(Math.PI / 4, Math.max(-Math.PI / 6, this.velocity * 0.08));
+                ctx.rotate(rot);
+
+                if (imagesLoaded.guddu) {
+                    ctx.drawImage(assets.guddu, -this.w/2, -this.h/2, this.w, this.h);
+                } else {
+                    // Fallback visual scaled up
+                    ctx.fillStyle = '#451a03';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 55, 50, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#b91c1c';
+                    ctx.fillRect(-35, -25, 70, 40);
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.arc(25, -12, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            },
+            update() {
+                this.velocity += GRAVITY;
+                this.y += this.velocity;
+                if (this.y < 0) this.y = 0;
+                // Collision with ground (40px high)
+                if (this.y + this.h > canvas.height - 40) endGame();
+            }
+        };
+
+        let pipes = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = canvas.width * 0.2;
+            player.y = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function handleInput() {
+            if (gameState === 'PLAYING') player.velocity = JUMP;
+            else if (gameState === 'START') startGame();
+        }
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
+        window.addEventListener('mousedown', handleInput);
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); }, {passive: false});
+
+        function createPipe() {
+            const minH = 80;
+            const maxH = canvas.height - PIPE_GAP - minH - 120;
+            const topH = Math.floor(Math.random() * (maxH - minH + 1)) + minH;
+            
+            const chars = ['kaleen', 'munna'];
+            pipes.push({
+                x: canvas.width,
+                topHeight: topH,
+                width: 120, // Slightly wider pipes for the bigger scale
+                passed: false,
+                charOnBottom: chars[Math.floor(Math.random() * chars.length)]
+            });
+        }
+
+        function drawVillageBackground() {
+            const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            sky.addColorStop(0, '#7c2d12');
+            sky.addColorStop(0.6, '#d97706');
+            sky.addColorStop(1, '#78350f');
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#451a03';
+            ctx.globalAlpha = 0.3;
+            for(let i = 0; i < canvas.width; i += 300) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 40);
+                ctx.lineTo(i + 150, canvas.height - 180);
+                ctx.lineTo(i + 300, canvas.height - 40);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+
+            ctx.fillStyle = '#2d1606';
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        }
+
+        function drawPipe(p) {
+            const woodColor = '#5c2d11';
+            const grainColor = '#3d1e0b';
+            const spikeColor = '#1f2937';
+
+            // Top Pipe
+            ctx.fillStyle = woodColor;
+            ctx.fillRect(p.x, 0, p.width, p.topHeight);
+            
+            ctx.strokeStyle = grainColor;
+            ctx.lineWidth = 3;
+            for(let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(p.x + (p.width * i/4), 0);
+                ctx.lineTo(p.x + (p.width * i/4), p.topHeight);
+                ctx.stroke();
+            }
+
+            // Spikes on upper pipe
+            ctx.fillStyle = spikeColor;
+            const spikeSize = 24;
+            const count = Math.floor(p.width / spikeSize);
+            for (let i = 0; i < count; i++) {
+                ctx.beginPath();
+                ctx.moveTo(p.x + (i * spikeSize), p.topHeight);
+                ctx.lineTo(p.x + (i * spikeSize) + (spikeSize/2), p.topHeight + spikeSize);
+                ctx.lineTo(p.x + (i * spikeSize) + spikeSize, p.topHeight);
+                ctx.fill();
+            }
+
+            // Bottom Pipe
+            const bY = p.topHeight + PIPE_GAP;
+            ctx.fillStyle = woodColor;
+            ctx.fillRect(p.x, bY, p.width, canvas.height - bY);
+            for(let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(p.x + (p.width * i/4), bY);
+                ctx.lineTo(p.x + (p.width * i/4), canvas.height);
+                ctx.stroke();
+            }
+
+            // Standing Character (Scaled up slightly)
+            const charW = 90;
+            const charH = 120; 
+            const charX = p.x + (p.width - charW) / 2;
+            const charY = bY - charH;
+
+            drawCharacter(p.charOnBottom, charX, charY, charW, charH);
+        }
+
+        function drawCharacter(type, x, y, width, height) {
+            if (type === 'kaleen' && imagesLoaded.kaleen) {
+                ctx.drawImage(assets.kaleen, x, y, width, height);
+            } else if (type === 'munna' && imagesLoaded.munna) {
+                ctx.drawImage(assets.munna, x, y, width, height);
+            } else if (type === 'beena' && imagesLoaded.beena) {
+                ctx.drawImage(assets.beena, x, y, width, height);
+            } else {
+                ctx.save();
+                ctx.fillStyle = '#000';
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath(); ctx.arc(x + width/2, y + 25, 20, 0, Math.PI * 2); ctx.fill();
+                ctx.fillRect(x + 15, y + 40, width - 30, height - 40);
+                ctx.restore();
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = '12px "Press Start 2P"';
+                ctx.fillText(type[0].toUpperCase(), x + width/2 - 6, y + height/2 + 15);
+            }
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            player.update();
+            frameCount++;
+
+            if (frameCount % PIPE_SPAWN_RATE === 0) createPipe();
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                let p = pipes[i];
+                p.x -= PIPE_SPEED;
+
+                // Collision Detection - Adjusted for 125px scale
+                // Buffer to make collision slightly more forgiving
+                const bufferX = player.w * 0.15;
+                const bufferY = player.h * 0.15;
+
+                const spikeLimit = p.topHeight + 15;
+                const charLimit = p.topHeight + PIPE_GAP - 100;
+
+                if (
+                    player.x + player.w - bufferX > p.x &&
+                    player.x + bufferX < p.x + p.width &&
+                    (player.y + bufferY < spikeLimit || player.y + player.h - bufferY > charLimit)
+                ) {
+                    endGame();
+                }
+
+                if (!p.passed && p.x + p.width < player.x) {
+                    p.passed = true;
+                    score++;
+                    scoreElement.innerText = score;
+                }
+
+                if (p.x + p.width < -200) pipes.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawVillageBackground();
+            pipes.forEach(drawPipe);
+            player.draw();
+
+            if (gameState === 'PLAYING') {
+                requestAnimationFrame(() => {
+                    update();
+                    draw();
+                });
+            }
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            score = 0;
+            scoreElement.innerText = '0';
+            pipes = [];
+            player.y = canvas.height / 2;
+            player.velocity = 0;
+            frameCount = 0;
+
+            startMenu.classList.add('hidden');
+            gameOverMenu.classList.add('hidden');
+            scoreElement.classList.remove('hidden');
+            draw();
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            if (score > highscore) {
+                highscore = score;
+                localStorage.setItem('mirzapur_high_score', highscore);
+            }
+            finalScoreText.innerText = `SCORE: ${score}`;
+            bestScoreText.innerText = `RECORD: ${highscore}`;
+            gameOverMenu.classList.remove('hidden');
+            scoreElement.classList.add('hidden');
+        }
+
+        bestScoreText.innerText = `RECORD: ${highscore}`;
+    </script>
+</body>
+</html>
