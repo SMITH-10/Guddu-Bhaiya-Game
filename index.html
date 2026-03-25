@@ -97,7 +97,7 @@
 
         <!-- Game Over Menu -->
         <div id="game-over-menu" class="menu-card hidden">
-            <h1 class="text-2xl mb-4 text-red-600 village-font">GUDDU KE ANDE KHATAM</h1>
+            <h1 class="text-2xl mb-4 text-red-600 village-font">KHEL KHATAM</h1>
             <p id="final-score" class="text-lg mb-2">Score: 0</p>
             <p id="best-score" class="text-sm mb-6 text-orange-300">Record: 0</p>
             <button class="btn" onclick="startGame()">Dobara Koshish</button>
@@ -117,10 +117,10 @@
 
         // Game Constants
         const GRAVITY = 0.22;
-        const JUMP = -6.2; // Slightly more jump power for bigger mass
+        const JUMP = -6.2; 
         const PIPE_SPEED = 3.8;
         const PIPE_SPAWN_RATE = 100; 
-        const PIPE_GAP = 340; // Admin: Increased significantly to accommodate larger Guddu
+        const PIPE_GAP = 340; 
 
         let gameState = 'START';
         let score = 0;
@@ -135,11 +135,15 @@
             beena: new Image()
         };
 
-        // Admin: Assets from your folder
-        assets.guddu.src = 'assets/guddu.png';
-        assets.kaleen.src = 'assets/kaleen bhaiya.png';
-        assets.munna.src = 'assets/munna bhaiya.png';
-        assets.beena.src = 'assets/beena.png'; 
+        /**
+         * Admin, I removed the 'assets/' folder prefix.
+         * Just upload your .png files directly into your GitHub repository
+         * alongside your index.html file.
+         */
+        assets.guddu.src = 'guddu.png';
+        assets.kaleen.src = 'kaleen bhaiya.png';
+        assets.munna.src = 'munna bhaiya.png';
+        assets.beena.src = 'beena.png'; 
 
         let imagesLoaded = { guddu: false, kaleen: false, munna: false, beena: false };
         assets.guddu.onload = () => imagesLoaded.guddu = true;
@@ -150,8 +154,8 @@
         const player = {
             x: 0,
             y: 0,
-            w: 125, // Admin: Increased significantly (was 80)
-            h: 125, // Admin: Increased significantly (was 80)
+            w: 125, 
+            h: 125, 
             velocity: 0,
             draw() {
                 ctx.save();
@@ -162,7 +166,6 @@
                 if (imagesLoaded.guddu) {
                     ctx.drawImage(assets.guddu, -this.w/2, -this.h/2, this.w, this.h);
                 } else {
-                    // Fallback visual scaled up
                     ctx.fillStyle = '#451a03';
                     ctx.beginPath();
                     ctx.ellipse(0, 0, 55, 50, 0, 0, Math.PI * 2);
@@ -180,7 +183,6 @@
                 this.velocity += GRAVITY;
                 this.y += this.velocity;
                 if (this.y < 0) this.y = 0;
-                // Collision with ground (40px high)
                 if (this.y + this.h > canvas.height - 40) endGame();
             }
         };
@@ -213,7 +215,7 @@
             pipes.push({
                 x: canvas.width,
                 topHeight: topH,
-                width: 120, // Slightly wider pipes for the bigger scale
+                width: 120, 
                 passed: false,
                 charOnBottom: chars[Math.floor(Math.random() * chars.length)]
             });
@@ -283,7 +285,7 @@
                 ctx.stroke();
             }
 
-            // Standing Character (Scaled up slightly)
+            // Standing Character
             const charW = 90;
             const charH = 120; 
             const charX = p.x + (p.width - charW) / 2;
@@ -324,8 +326,6 @@
                 let p = pipes[i];
                 p.x -= PIPE_SPEED;
 
-                // Collision Detection - Adjusted for 125px scale
-                // Buffer to make collision slightly more forgiving
                 const bufferX = player.w * 0.15;
                 const bufferY = player.h * 0.15;
 
