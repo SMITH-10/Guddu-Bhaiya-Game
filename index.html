@@ -132,14 +132,14 @@
             guddu: new Image(),
             kaleen: new Image(),
             munna: new Image(),
-            beena: new Image()
+            beena: new Image(),
+            // Sounds
+            sndJump: new Audio('jump.mp3'),
+            sndScore: new Audio('score.mp3'),
+            sndDead: new Audio('dead.mp3')
         };
 
-        /**
-         * Admin, I removed the 'assets/' folder prefix.
-         * Just upload your .png files directly into your GitHub repository
-         * alongside your index.html file.
-         */
+        // Image paths
         assets.guddu.src = 'guddu.png';
         assets.kaleen.src = 'kaleen bhaiya.png';
         assets.munna.src = 'munna bhaiya.png';
@@ -150,6 +150,14 @@
         assets.kaleen.onload = () => imagesLoaded.kaleen = true;
         assets.munna.onload = () => imagesLoaded.munna = true;
         assets.beena.onload = () => imagesLoaded.beena = true;
+
+        // Helper function to play sound from the beginning
+        function playSound(audio) {
+            audio.pause();
+            audio.currentTime = 0;
+            // Catch error for browsers blocking audio before first interaction
+            audio.play().catch(e => console.log("Audio play blocked until interaction"));
+        }
 
         const player = {
             x: 0,
@@ -199,7 +207,10 @@
         resize();
 
         function handleInput() {
-            if (gameState === 'PLAYING') player.velocity = JUMP;
+            if (gameState === 'PLAYING') {
+                player.velocity = JUMP;
+                playSound(assets.sndJump); // Admin: Play jump sound
+            }
             else if (gameState === 'START') startGame();
         }
         window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
@@ -344,6 +355,7 @@
                     p.passed = true;
                     score++;
                     scoreElement.innerText = score;
+                    playSound(assets.sndScore); // Admin: Play score sound
                 }
 
                 if (p.x + p.width < -200) pipes.splice(i, 1);
@@ -380,7 +392,11 @@
         }
 
         function endGame() {
+            if (gameState === 'GAMEOVER') return;
+            
             gameState = 'GAMEOVER';
+            playSound(assets.sndDead); // Admin: Play death sound
+
             if (score > highscore) {
                 highscore = score;
                 localStorage.setItem('mirzapur_high_score', highscore);
